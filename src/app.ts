@@ -1,7 +1,7 @@
 import express, { type Express } from "express";
 import morgan from "morgan";
 import { authRouter } from "./modules/auth/auth.route.js";
-import { routeNotFound } from "./lib/middlewares.js";
+import { errorHandler, routeNotFound } from "./lib/middlewares.js";
 
 const app: Express = express();
 
@@ -16,5 +16,7 @@ app.get("/", (req, res) => {
 });
 
 app.use(routeNotFound);
+
+app.use(errorHandler);
 
 export { app };

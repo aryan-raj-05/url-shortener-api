@@ -12,4 +12,9 @@ export const signInBodySchema = z.object({
 });
 
 export type SignUpBody = z.infer<typeof signUpBodySchema>;
+
 export type SignInBody = z.infer<typeof signInBodySchema>;
+
+export type SignInResponseDto = {
+  token: string;
+};

@@ -1,6 +1,8 @@
-import type { RequestHandler } from "express";
 import z from "zod";
+import jwt from "jsonwebtoken";
 import { decodeToken } from "./jwt.js";
+import { HttpError, UnauthorizedError } from "./errors.js";
+import type { Request, Response, NextFunction, RequestHandler } from "express";
 
 export const validate =
   (type: "params" | "body" | "query", schema: z.ZodType): RequestHandler =>
@@ -49,4 +51,58 @@ export const requireAuth: RequestHandler = (req, res, next) => {
 
 export const routeNotFound: RequestHandler = (req, res, next) => {
   return res.status(404).json({ error: "endpoint does not exist" });
+};
+
+function hasCode(value: unknown): value is { code: string } {
+  return typeof value === "object" && value !== null && "code" in value;
+}
+
+function normalizeError(err: unknown) {
+  if (err instanceof HttpError) return err;
+
+  if (err instanceof jwt.TokenExpiredError) {
+    return new UnauthorizedError("Token expired");
+  }
+
+  if (err instanceof jwt.JsonWebTokenError) {
+    return new UnauthorizedError("Invalid token");
+  }
+
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    "cause" in err &&
+    hasCode(err.cause)
+  ) {
+    switch (err.cause.code) {
+      case "23505":
+        return new HttpError(409, "Unique property violated", "DB_ERROR");
+      case "23502":
+        return new HttpError(400, "Missing required field", "DB_ERROR");
+      default:
+        return new HttpError(500, "Database error", "DB_ERROR");
+    }
+  }
+
+  return new HttpError();
+}
+
+export const errorHandler = (
+  err: unknown,
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  if (!(err instanceof HttpError)) {
+    console.error({
+      message: (err as Error).message,
+      stack: (err as Error).stack,
+      path: req.path,
+      method: req.method,
+    });
+  }
+
+  const e = normalizeError(err);
+
+  return res.status(e.status).json(e.toJSON());
 };
