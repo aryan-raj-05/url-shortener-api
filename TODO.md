@@ -1,0 +1,2 @@
+- [ ] handle expired short urls
+- [ ] handle custom aliases

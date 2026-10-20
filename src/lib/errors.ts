@@ -46,3 +46,9 @@ export class NotFoundError extends HttpError {
     super(404, message, "NOT_FOUND");
   }
 }
+
+export class GoneError extends HttpError {
+  constructor(message = "Resource is no longer available") {
+    super(410, message, "RESOURCE_NOT_AVAILABLE");
+  }
+}

@@ -21,3 +21,19 @@ export const user = pgTable("users", {
     .$onUpdate(() => new Date())
     .notNull(),
 });
+
+export const url = pgTable("short_urls", {
+  shortUrl: text("short_url").primaryKey(),
+  longUrl: text("long_url").notNull(),
+  expiresAt: timestamp("expires_at"),
+
+  createdBy: uuid("created_by")
+    .notNull()
+    .references(() => user.id),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
