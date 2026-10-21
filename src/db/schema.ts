@@ -29,7 +29,7 @@ export const url = pgTable("short_urls", {
 
   createdBy: uuid("created_by")
     .notNull()
-    .references(() => user.id),
+    .references(() => user.id, { onDelete: "cascade" }),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
