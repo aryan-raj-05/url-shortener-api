@@ -9,17 +9,11 @@ import {
 
 const urlRouter: Router = Router();
 
-urlRouter
-  .get(
-    "/:shortUrl",
-    validate("params", shortUrlParamSchema),
-    asyncHandler(getLongUrl),
-  )
-  .post(
-    "/",
-    requireAuth,
-    validate("body", createShortUrlBodySchema),
-    asyncHandler(createShortUrl),
-  );
+urlRouter.post(
+  "/",
+  requireAuth,
+  validate("body", createShortUrlBodySchema),
+  asyncHandler(createShortUrl),
+);
 
 export { urlRouter };
