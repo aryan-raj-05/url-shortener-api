@@ -18,11 +18,7 @@ const urlRouter: Router = Router();
 
 urlRouter
   .use(requireAuth)
-  .get(
-    "/",
-    validate("query", getAllUrlsQuerySchema),
-    asyncHandler(getAllUrlsCreatedByUser),
-  )
+  .get("/", asyncHandler(getAllUrlsCreatedByUser))
   .post(
     "/",
     validate("body", createShortUrlBodySchema),

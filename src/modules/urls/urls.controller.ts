@@ -1,9 +1,10 @@
-import { and, count, desc, eq } from "drizzle-orm";
 import { db } from "../../db/index.js";
-import { url } from "../../db/schema.js";
 import { generateShortCode } from "../../lib/short-code.js";
+import { type RequestHandler } from "express";
+import { url, urlSelectSchema } from "../../db/schema.js";
+import { deleteCached, getCached, setCached } from "../../lib/redis.js";
+import { and, count, desc, eq } from "drizzle-orm";
 import { GoneError, HttpError, NotFoundError } from "../../lib/errors.js";
-import type { RequestHandler } from "express";
 import {
   toUrlResponseDto,
   type CreateShortUrlBody,
@@ -16,6 +17,16 @@ import {
 
 export const getLongUrl: RequestHandler<ShortUrlParam> = async (req, res) => {
   const { shortUrl } = req.params;
+  const cacheKey = `url:${shortUrl}`;
+
+  const cachedUrl = await getCached(cacheKey, urlSelectSchema);
+
+  if (cachedUrl) {
+    if (cachedUrl.expiresAt && cachedUrl.expiresAt < new Date()) {
+      throw new GoneError("Short URL has expired");
+    }
+    return res.redirect(302, cachedUrl.longUrl);
+  }
 
   const [resolvedLongUrl] = await db
     .select()
@@ -29,6 +40,8 @@ export const getLongUrl: RequestHandler<ShortUrlParam> = async (req, res) => {
   if (resolvedLongUrl.expiresAt && resolvedLongUrl.expiresAt < new Date()) {
     throw new GoneError("Short URL has expired");
   }
+
+  await setCached(cacheKey, resolvedLongUrl, urlSelectSchema, 300);
 
   res.redirect(302, resolvedLongUrl.longUrl);
 };
@@ -83,38 +96,19 @@ export const createShortUrl: RequestHandler<
 
 export const getAllUrlsCreatedByUser: RequestHandler<
   {},
-  PaginatedUrlResponseDto,
-  any,
-  GetAllUrlsQuery
+  UrlResponseDto[]
 > = async (req, res) => {
   const { userId } = req.user!;
-  const { page, limit } = req.query;
 
-  const offset = (page - 1) * limit;
-
-  const [selected, [countResult]] = await Promise.all([
-    db
-      .select()
-      .from(url)
-      .where(eq(url.createdBy, userId))
-      .orderBy(desc(url.createdAt))
-      .limit(limit)
-      .offset(offset),
-    db.select({ total: count() }).from(url).where(eq(url.createdBy, userId)),
-  ]);
+  const selected = await db
+    .select()
+    .from(url)
+    .where(eq(url.createdBy, userId))
+    .orderBy(desc(url.createdAt));
 
   const urls = selected.map((u) => toUrlResponseDto(u));
-  const total = countResult!.total;
 
-  res.status(200).json({
-    data: urls,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    },
-  });
+  res.status(200).json(urls);
 };
 
 export const updateShortUrl: RequestHandler<
@@ -139,6 +133,8 @@ export const updateShortUrl: RequestHandler<
     throw new NotFoundError();
   }
 
+  await deleteCached(`url:${shortUrl}`);
+
   return res.status(200).json(toUrlResponseDto(updated));
 };
 
@@ -157,6 +153,8 @@ export const deleteShortUrl: RequestHandler<ShortUrlParam> = async (
   if (!deleted) {
     throw new NotFoundError();
   }
+
+  await deleteCached(`url:${shortUrl}`);
 
   res.sendStatus(204);
 };

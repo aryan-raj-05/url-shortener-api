@@ -1,3 +1,4 @@
+import { createSelectSchema } from "drizzle-zod";
 import {
   boolean,
   pgTable,
@@ -37,3 +38,5 @@ export const url = pgTable("short_urls", {
     .$onUpdate(() => new Date())
     .notNull(),
 });
+
+export const urlSelectSchema = createSelectSchema(url);

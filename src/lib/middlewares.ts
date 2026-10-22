@@ -5,7 +5,7 @@ import { HttpError, UnauthorizedError } from "./errors.js";
 import type { Request, Response, NextFunction, RequestHandler } from "express";
 
 export const validate =
-  (type: "params" | "body" | "query", schema: z.ZodType): RequestHandler =>
+  (type: "params" | "body", schema: z.ZodType): RequestHandler =>
   (req, res, next) => {
     const result = schema.safeParse(req[type]);
 
