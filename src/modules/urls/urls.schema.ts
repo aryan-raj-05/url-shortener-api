@@ -26,8 +26,8 @@ export const updateShortUrlBodySchema = z.object({
 });
 
 export const getAllUrlsQuerySchema = z.object({
-  page: z.number().default(1),
-  limit: z.number().default(20),
+  page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(100).default(20),
 });
 
 export type ShortUrlParam = z.infer<typeof shortUrlParamSchema>;

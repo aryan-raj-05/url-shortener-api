@@ -14,11 +14,16 @@ app.use(morgan("tiny"));
 
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/urls", urlRouter);
+
 app.get(
   "/:shortUrl",
   validate("params", shortUrlParamSchema),
   asyncHandler(getLongUrl),
 );
+
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
+});
 
 app.use(routeNotFound);
 app.use(errorHandler);
