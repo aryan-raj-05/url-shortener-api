@@ -1,22 +1,22 @@
 import { db } from "../../db/index.js";
 import { generateShortCode } from "../../lib/short-code.js";
 import { type RequestHandler } from "express";
+import { and, count, desc, eq } from "drizzle-orm";
 import { url, urlSelectSchema } from "../../db/schema.js";
 import { deleteCached, getCached, setCached } from "../../lib/redis.js";
-import { and, count, desc, eq } from "drizzle-orm";
 import { GoneError, HttpError, NotFoundError } from "../../lib/errors.js";
 import {
+  createShortUrlBodySchema,
+  getAllUrlsQuerySchema,
+  shortUrlParamSchema,
   toUrlResponseDto,
-  type CreateShortUrlBody,
-  type GetAllUrlsQuery,
+  updateShortUrlBodySchema,
   type PaginatedUrlResponseDto,
-  type ShortUrlParam,
-  type UpdateShortUrlBody,
   type UrlResponseDto,
 } from "./urls.schema.js";
 
-export const getLongUrl: RequestHandler<ShortUrlParam> = async (req, res) => {
-  const { shortUrl } = req.params;
+export const getLongUrl: RequestHandler = async (req, res) => {
+  const { shortUrl } = shortUrlParamSchema.parse(req.params);
   const cacheKey = `url:${shortUrl}`;
 
   const cachedUrl = await getCached(cacheKey, urlSelectSchema);
@@ -60,12 +60,11 @@ function isShortCodeUniqueViolation(err: unknown): boolean {
   return cause.code === "23505";
 }
 
-export const createShortUrl: RequestHandler<
-  {},
-  UrlResponseDto,
-  CreateShortUrlBody
-> = async (req, res) => {
-  const { longUrl, expiresAt } = req.body;
+export const createShortUrl: RequestHandler<{}, UrlResponseDto> = async (
+  req,
+  res,
+) => {
+  const { longUrl, expiresAt } = createShortUrlBodySchema.parse(req.body);
 
   for (let attempt = 0; attempt < 5; attempt++) {
     const shortUrl = generateShortCode();
@@ -94,6 +93,40 @@ export const createShortUrl: RequestHandler<
   throw new HttpError(500, "Could not generate a unique short code");
 };
 
+export const getUrlsCreatedByUserPaginated: RequestHandler<
+  {},
+  PaginatedUrlResponseDto
+> = async (req, res) => {
+  const { userId } = req.user!;
+  const { page, limit } = getAllUrlsQuerySchema.parse(req.query);
+
+  const offset = (page - 1) * limit;
+
+  const [selected, [countResult]] = await Promise.all([
+    db
+      .select()
+      .from(url)
+      .where(eq(url.createdBy, userId))
+      .orderBy(desc(url.createdAt))
+      .limit(limit)
+      .offset(offset),
+    db.select({ total: count() }).from(url).where(eq(url.createdBy, userId)),
+  ]);
+
+  const urls = selected.map((u) => toUrlResponseDto(u));
+  const total = countResult!.total;
+
+  res.status(200).json({
+    data: urls,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  });
+};
+
 export const getAllUrlsCreatedByUser: RequestHandler<
   {},
   UrlResponseDto[]
@@ -111,13 +144,12 @@ export const getAllUrlsCreatedByUser: RequestHandler<
   res.status(200).json(urls);
 };
 
-export const updateShortUrl: RequestHandler<
-  ShortUrlParam,
-  UrlResponseDto,
-  UpdateShortUrlBody
-> = async (req, res) => {
-  const { shortUrl } = req.params;
-  const { newLongUrl, expiresAt } = req.body;
+export const updateShortUrl: RequestHandler<{}, UrlResponseDto> = async (
+  req,
+  res,
+) => {
+  const { shortUrl } = shortUrlParamSchema.parse(req.params);
+  const { newLongUrl, expiresAt } = updateShortUrlBodySchema.parse(req.body);
   const { userId } = req.user!;
 
   const [updated] = await db
@@ -138,11 +170,8 @@ export const updateShortUrl: RequestHandler<
   return res.status(200).json(toUrlResponseDto(updated));
 };
 
-export const deleteShortUrl: RequestHandler<ShortUrlParam> = async (
-  req,
-  res,
-) => {
-  const { shortUrl } = req.params;
+export const deleteShortUrl: RequestHandler = async (req, res) => {
+  const { shortUrl } = shortUrlParamSchema.parse(req.params);
   const { userId } = req.user!;
 
   const [deleted] = await db

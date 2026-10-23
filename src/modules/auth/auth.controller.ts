@@ -3,18 +3,17 @@ import { generateToken } from "../../lib/jwt.js";
 import { createUser, findUserByEmail } from "../user/user.repository.js";
 import { HttpError, UnauthorizedError } from "../../lib/errors.js";
 import { comparePassword, hashPassword } from "../../lib/password.js";
-import type {
-  SignInResponseDto,
-  SignInBody,
-  SignUpBody,
+import {
+  type SignInResponseDto,
+  signInBodySchema,
+  signUpBodySchema,
 } from "./auth.schema.js";
 
-export const signInUser: RequestHandler<
-  {},
-  SignInResponseDto,
-  SignInBody
-> = async (req, res) => {
-  const { email, password } = req.body;
+export const signInUser: RequestHandler<{}, SignInResponseDto> = async (
+  req,
+  res,
+) => {
+  const { email, password } = signInBodySchema.parse(req.body);
 
   const user = await findUserByEmail(email);
 
@@ -27,12 +26,11 @@ export const signInUser: RequestHandler<
   return res.status(200).json({ token });
 };
 
-export const signUpUser: RequestHandler<
-  {},
-  SignInResponseDto,
-  SignUpBody
-> = async (req, res) => {
-  const { name, email, password } = req.body;
+export const signUpUser: RequestHandler<{}, SignInResponseDto> = async (
+  req,
+  res,
+) => {
+  const { name, email, password } = signUpBodySchema.parse(req.body);
 
   const passwordHash = await hashPassword(password);
 

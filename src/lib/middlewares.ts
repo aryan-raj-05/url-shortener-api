@@ -1,21 +1,8 @@
 import z from "zod";
 import jwt from "jsonwebtoken";
 import { decodeToken } from "./jwt.js";
-import { HttpError, UnauthorizedError } from "./errors.js";
+import { BadRequestError, HttpError, UnauthorizedError } from "./errors.js";
 import type { Request, Response, NextFunction, RequestHandler } from "express";
-
-export const validate =
-  (type: "params" | "body", schema: z.ZodType): RequestHandler =>
-  (req, res, next) => {
-    const result = schema.safeParse(req[type]);
-
-    if (!result.success) {
-      return res.status(400).json({ error: z.treeifyError(result.error) });
-    }
-
-    req[type] = result.data;
-    next();
-  };
 
 function isCorrectPayload(obj: unknown): obj is { userId: string } {
   return typeof obj === "object" && obj !== null && "userId" in obj;
@@ -57,8 +44,23 @@ function hasCode(value: unknown): value is { code: string } {
   return typeof value === "object" && value !== null && "code" in value;
 }
 
+function isMalformedJsonError(
+  value: unknown,
+): value is { type: "entity.parse.failed" } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "type" in value &&
+    value.type === "entity.parse.failed"
+  );
+}
+
 function normalizeError(err: unknown) {
   if (err instanceof HttpError) return err;
+
+  if (isMalformedJsonError(err)) {
+    return new BadRequestError("Malformed JSON request body");
+  }
 
   if (err instanceof jwt.TokenExpiredError) {
     return new UnauthorizedError("Token expired");
@@ -66,6 +68,10 @@ function normalizeError(err: unknown) {
 
   if (err instanceof jwt.JsonWebTokenError) {
     return new UnauthorizedError("Invalid token");
+  }
+
+  if (err instanceof z.ZodError) {
+    return new BadRequestError(z.prettifyError(err));
   }
 
   if (
@@ -93,7 +99,7 @@ export const errorHandler = (
   res: Response,
   next: NextFunction,
 ) => {
-  if (!(err instanceof HttpError)) {
+  if (!(err instanceof HttpError) && !(err instanceof z.ZodError)) {
     console.error({
       message: (err as Error).message,
       stack: (err as Error).stack,

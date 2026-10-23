@@ -30,11 +30,6 @@ export const getAllUrlsQuerySchema = z.object({
   limit: z.coerce.number().min(1).max(100).default(20),
 });
 
-export type ShortUrlParam = z.infer<typeof shortUrlParamSchema>;
-export type CreateShortUrlBody = z.infer<typeof createShortUrlBodySchema>;
-export type UpdateShortUrlBody = z.infer<typeof updateShortUrlBodySchema>;
-export type GetAllUrlsQuery = z.infer<typeof getAllUrlsQuerySchema>;
-
 export const toUrlResponseDto = (created: typeof url.$inferSelect) => {
   return {
     shortUrl: created.shortUrl,

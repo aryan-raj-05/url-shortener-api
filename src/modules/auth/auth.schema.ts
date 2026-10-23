@@ -11,10 +11,6 @@ export const signInBodySchema = z.object({
   password: z.string().min(8),
 });
 
-export type SignUpBody = z.infer<typeof signUpBodySchema>;
-
-export type SignInBody = z.infer<typeof signInBodySchema>;
-
 export type SignInResponseDto = {
   token: string;
 };

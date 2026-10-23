@@ -1,12 +1,6 @@
 import { Router } from "express";
 import { asyncHandler } from "../../lib/async.js";
-import { requireAuth, validate } from "../../lib/middlewares.js";
-import {
-  createShortUrlBodySchema,
-  getAllUrlsQuerySchema,
-  shortUrlParamSchema,
-  updateShortUrlBodySchema,
-} from "./urls.schema.js";
+import { requireAuth } from "../../lib/middlewares.js";
 import {
   createShortUrl,
   deleteShortUrl,
@@ -19,21 +13,8 @@ const urlRouter: Router = Router();
 urlRouter
   .use(requireAuth)
   .get("/", asyncHandler(getAllUrlsCreatedByUser))
-  .post(
-    "/",
-    validate("body", createShortUrlBodySchema),
-    asyncHandler(createShortUrl),
-  )
-  .patch(
-    "/:shortUrl",
-    validate("params", shortUrlParamSchema),
-    validate("body", updateShortUrlBodySchema),
-    asyncHandler(updateShortUrl),
-  )
-  .delete(
-    "/:shortUrl",
-    validate("params", shortUrlParamSchema),
-    asyncHandler(deleteShortUrl),
-  );
+  .post("/", asyncHandler(createShortUrl))
+  .patch("/:shortUrl", asyncHandler(updateShortUrl))
+  .delete("/:shortUrl", asyncHandler(deleteShortUrl));
 
 export { urlRouter };
